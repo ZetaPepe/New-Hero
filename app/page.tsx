@@ -767,7 +767,7 @@ export default function GalopeLibertador() {
 
         {/* Telegram Icon */}
         <a
-          href="https://telegram.org"
+          href="https://t.me/Heroxdotfun"
           target="_blank"
           rel="noopener noreferrer"
           className="bg-white/90 hover:bg-white text-black p-1.5 rounded-full shadow-lg border border-gray-300 transition-all duration-200 hover:scale-105"
