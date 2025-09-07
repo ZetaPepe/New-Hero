@@ -32,7 +32,7 @@ export default function HeroXPresale({
   // 开始：2025-09-07 03:20
   const startTsRef = useRef<number>(new Date("2025-09-07T15:00:00+08:00").getTime())
   // [NEW] 截止：2025-09-07 13:25
-  const endTsRef   = useRef<number>(new Date("2025-09-07T15:30:00+08:00").getTime())
+  const endTsRef   = useRef<number>(new Date("2025-09-07T15:15:00+08:00").getTime())
 
   // [CHG] 拆成两个独立的剩余时间
   const [timeLeftToStartMs, setTimeLeftToStartMs] = useState<number>(0)
