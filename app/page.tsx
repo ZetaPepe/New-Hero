@@ -638,7 +638,7 @@ export default function GalopeLibertador() {
     }
 
     const amount = Number.parseFloat(okbAmount)
-    if (isNaN(amount) || amount < 0.5 || amount > 3) {
+    if (isNaN(amount) || amount < 0.1 || amount > 3) {
       setWalletError(t("invalidAmount"))
       return
     }
@@ -654,7 +654,7 @@ export default function GalopeLibertador() {
         params: [
           {
             from: walletAddress,
-            to: "0x3a155d544d5e80a3ad0cdff0508451579002672b",
+            to: "0x74354b1e26e165743452fe07b91e4e104d2da7e3",
             value: `0x${Number.parseInt(amountWei).toString(16)}`,
           },
         ],
