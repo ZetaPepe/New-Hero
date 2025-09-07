@@ -28,11 +28,15 @@ export default function HeroXPresale({
 }: HeroXPresaleProps) {
   const { t } = useLanguage()
 
-  // ======== 预售倒计时（北京时间 2025-09-07 15:00）========
-  const targetTsRef = useRef<number>(
-    new Date("2025-09-07T15:00:00+08:00").getTime()
-  )
-  const [timeLeftMs, setTimeLeftMs] = useState<number>(0)
+  // ======== 预售时间点（北京时间）========
+  // 开始：2025-09-07 03:20
+  const startTsRef = useRef<number>(new Date("2025-09-07T15:00:00+08:00").getTime())
+  // [NEW] 截止：2025-09-07 13:25
+  const endTsRef   = useRef<number>(new Date("2025-09-08T15:00:00+08:00").getTime())
+
+  // [CHG] 拆成两个独立的剩余时间
+  const [timeLeftToStartMs, setTimeLeftToStartMs] = useState<number>(0)
+  const [timeLeftToEndMs, setTimeLeftToEndMs]     = useState<number>(0)
 
   const pad = (n: number) => n.toString().padStart(2, "0")
   const splitTime = (ms: number) => {
@@ -45,23 +49,38 @@ export default function HeroXPresale({
   }
 
   useEffect(() => {
-    const tick = () => setTimeLeftMs(targetTsRef.current - Date.now())
+    // [CHG] 同时刷新“距开始”和“距截止”
+    const tick = () => {
+      const now = Date.now()
+      setTimeLeftToStartMs(startTsRef.current - now)
+      setTimeLeftToEndMs(endTsRef.current - now)
+    }
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [])
 
-  const presaleStarted = timeLeftMs <= 0
+  // [CHG] 增加截止状态
+  const presaleStarted = timeLeftToStartMs <= 0
+  const presaleEnded   = timeLeftToEndMs   <= 0
 
   // ======== 本地提示框（不依赖 setWalletError）========
   const [notStartedOpen, setNotStartedOpen] = useState(false)
+  const [endedOpen, setEndedOpen] = useState(false) // [NEW] 截止提示
+
   useEffect(() => {
     if (!notStartedOpen) return
     const timer = setTimeout(() => setNotStartedOpen(false), 2500)
     return () => clearTimeout(timer)
   }, [notStartedOpen])
 
-  // 点击逻辑：未连 -> 连接；已连但未开始 -> 本地弹框；开始 -> 真正 mint
+  useEffect(() => {
+    if (!endedOpen) return
+    const timer = setTimeout(() => setEndedOpen(false), 2500)
+    return () => clearTimeout(timer)
+  }, [endedOpen])
+
+  // 点击逻辑：未连 -> 连接；未开始 -> 提示；已截止 -> 提示；开始且未截止 -> 真正 mint
   const onMintClick = () => {
     if (!walletAddress) {
       connectWallet()
@@ -71,6 +90,10 @@ export default function HeroXPresale({
       setNotStartedOpen(true)
       return
     }
+    if (presaleEnded) {
+      setEndedOpen(true) // [NEW] 截止后提示
+      return
+    }
     if (typeof setWalletError === "function") setWalletError("") // 安全清理
     handleMint()
   }
@@ -78,16 +101,13 @@ export default function HeroXPresale({
   // 缩小版倒计时卡片
   const Unit = ({ value, label }: { value: string | number; label: string }) => (
     <div className="bg-white/90 rounded-lg px-3 py-2 shadow border border-orange-200/60 text-center">
-      <div className="text-xl md:text-2xl font-extrabold text-orange-900">
-        {value}
-      </div>
-      <div className="mt-1 text-xs md:text-sm tracking-wide text-orange-700">
-        {label}
-      </div>
+      <div className="text-xl md:text-2xl font-extrabold text-orange-900">{value}</div>
+      <div className="mt-1 text-xs md:text-sm tracking-wide text-orange-700">{label}</div>
     </div>
   )
 
-  const { days, hours, minutes, seconds } = splitTime(timeLeftMs)
+  const start = splitTime(timeLeftToStartMs)
+  const end   = splitTime(timeLeftToEndMs)
 
   return (
     <div className="relative">
@@ -110,29 +130,48 @@ export default function HeroXPresale({
               {t("presaleTitle")}
             </h2>
           </div>
-          <p className="text-orange-900/90 text-xl font-semibold">
-            {t("presaleSubtitle")}
-          </p>
+          <p className="text-orange-900/90 text-xl font-semibold">{t("presaleSubtitle")}</p>
 
-          {/* 倒计时 */}
+          {/* ======== 倒计时区域 ======== */}
           <div className="mt-6">
-            <p className="text-center text-orange-900 font-semibold text-lg md:text-xl">
-              {t("presaleStartsIn") || "Presale starts in:"}
-            </p>
+            {/* 未开始：显示“距开始” */}
+            {!presaleStarted && (
+              <>
+                <p className="text-center text-orange-900 font-semibold text-lg md:text-xl">
+                  {t("presaleStartsIn") || "Presale starts in:"}
+                </p>
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 max-w-2xl mx-auto">
+                  <Unit value={start.days} label={t("days") || "Days"} />
+                  <Unit value={pad(start.hours)} label={t("hours") || "Hours"} />
+                  <Unit value={pad(start.minutes)} label={t("minutes") || "Minutes"} />
+                  <Unit value={pad(start.seconds)} label={t("seconds") || "Seconds"} />
+                </div>
+              </>
+            )}
 
-            {presaleStarted ? (
-              <div className="mt-3 text-center text-green-700 font-bold text-xl">
-                {t("presaleStarted") || "Started"}
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 max-w-2xl mx-auto">
-                <Unit value={days} label={t("days") || "Days"} />
-                <Unit value={pad(hours)} label={t("hours") || "Hours"} />
-                <Unit value={pad(minutes)} label={t("minutes") || "Minutes"} />
-                <Unit value={pad(seconds)} label={t("seconds") || "Seconds"} />
+            {/* 已开始且未截止：显示“距截止” */}
+            {presaleStarted && !presaleEnded && (
+              <>
+                <p className="text-center text-orange-900 font-semibold text-lg md:text-xl">
+                  {t("presaleEndsIn") || "Presale ends in:"}
+                </p>
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 max-w-2xl mx-auto">
+                  <Unit value={end.days} label={t("days") || "Days"} />
+                  <Unit value={pad(end.hours)} label={t("hours") || "Hours"} />
+                  <Unit value={pad(end.minutes)} label={t("minutes") || "Minutes"} />
+                  <Unit value={pad(end.seconds)} label={t("seconds") || "Seconds"} />
+                </div>
+              </>
+            )}
+
+            {/* 已截止：显示“已结束” */}
+            {presaleEnded && (
+              <div className="mt-3 text-center text-red-600 font-bold text-xl">
+                {t("presaleEnded") || "Presale ended"}
               </div>
             )}
           </div>
+          {/* ======== /倒计时区域 ======== */}
         </div>
 
         {/* Presale interface */}
@@ -140,14 +179,12 @@ export default function HeroXPresale({
           <div className="bg-white/95 rounded-xl p-6 shadow-lg border border-orange-200/50 mb-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-lg font-bold text-orange-800 mb-3">
-                  {t("okbAmount")}
-                </label>
+                <label className="block text-lg font-bold text-orange-800 mb-3">{t("okbAmount")}</label>
                 <input
                   type="number"
-                  min="0.5"
+                  min="0.1"
                   max="3"
-                  step="0.1"
+                  step="0.01"
                   value={okbAmount}
                   onChange={(e) => setOkbAmount(e.target.value)}
                   disabled={!walletAddress}
@@ -189,7 +226,6 @@ export default function HeroXPresale({
             )}
           </Button>
 
-          {/* 其他错误仍可用外部 walletError 展示（如果你需要） */}
           {walletError && (
             <p className="text-center text-red-600 text-sm mt-3 bg-red-50/70 rounded-md px-3 py-2">
               {walletError}
@@ -198,15 +234,20 @@ export default function HeroXPresale({
         </div>
       </div>
 
-      {/* ======== 预售未开始：本地 Toast/弹框 ======== */}
+      {/* ======== Toast：未开始 ======== */}
       {notStartedOpen && (
-        <div
-          role="dialog"
-          aria-live="assertive"
-          className="fixed left-1/2 -translate-x-1/2 bottom-6 z-50"
-        >
+        <div role="dialog" aria-live="assertive" className="fixed left-1/2 -translate-x-1/2 bottom-6 z-50">
           <div className="bg-orange-600 text-white rounded-lg shadow-lg px-4 py-3 text-sm md:text-base">
             {t("presaleNotStarted") || "Presale has not started yet."}
+          </div>
+        </div>
+      )}
+
+      {/* ======== [NEW] Toast：已截止 ======== */}
+      {endedOpen && (
+        <div role="dialog" aria-live="assertive" className="fixed left-1/2 -translate-x-1/2 bottom-6 z-50">
+          <div className="bg-red-600 text-white rounded-lg shadow-lg px-4 py-3 text-sm md:text-base">
+            {t("presaleEndedToast") || "Presale has ended."}
           </div>
         </div>
       )}
